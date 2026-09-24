@@ -1,0 +1,239 @@
+// Prisma schema for Realtime Chat App.
+// The database URL is configured in ../prisma.config.js (Prisma 7), not here.
+// Review before running `npm run prisma:migrate`.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+}
+
+enum NotificationType {
+  NEW_MESSAGE
+  MESSAGE_REACTION
+  GROUP_INVITE
+  GROUP_UPDATE
+  SYSTEM
+}
+
+// ─────────────────────────────────────────────────────────────
+// Models
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String  @id @default(uuid()) @db.Uuid
+  email        String  @unique
+  username     String  @unique
+  passwordHash String
+  displayName  String
+  bio          String? @db.VarChar(280)
+
+  avatarUrl      String?
+  avatarPublicId String? // Cloudinary public_id, needed to delete/replace the image
+
+  isEmailVerified Boolean   @default(false)
+  lastSeenAt      DateTime?
+
+  // Password reset: only a hash of the token is stored, never the raw token.
+  passwordResetTokenHash String?   @unique
+  passwordResetExpiresAt DateTime?
+
+  // Incremented to invalidate all outstanding refresh tokens (logout everywhere).
+  tokenVersion Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships            ConversationMember[]
+  messages               Message[]
+  reactions              MessageReaction[]
+  messageReads           MessageRead[]
+  createdConversations   Conversation[]       @relation("ConversationCreator")
+  notifications          Notification[]       @relation("NotificationRecipient")
+  triggeredNotifications Notification[]       @relation("NotificationActor")
+
+  @@map("users")
+}
+
+model Conversation {
+  id   String           @id @default(uuid()) @db.Uuid
+  type ConversationType @default(DIRECT)
+
+  // Group-only fields (null for DIRECT conversations).
+  name           String? @db.VarChar(100)
+  description    String? @db.VarChar(500)
+  avatarUrl      String?
+  avatarPublicId String?
+
+  // Deterministic key for DIRECT conversations: the two user ids sorted and
+  // joined with ":". The unique constraint prevents duplicate 1:1 chats.
+  // Always null for GROUP conversations.
+  directKey String? @unique
+
+  createdById String? @db.Uuid
+  createdBy   User?   @relation("ConversationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Denormalized for fast "sort conversations by latest activity".
+  lastMessageAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members       ConversationMember[]
+  messages      Message[]
+  notifications Notification[]
+
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String       @db.Uuid
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role MemberRole @default(MEMBER)
+
+  isMuted    Boolean @default(false)
+  isArchived Boolean @default(false)
+
+  // Per-member read cursor, used for cheap unread counts.
+  lastReadAt DateTime?
+
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime? // Set when a member leaves a group; row kept for history.
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
+model Message {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  // Nullable so messages survive if the sender's account is deleted.
+  senderId String? @db.Uuid
+  sender   User?   @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  type    MessageType @default(TEXT)
+  content String?     @db.Text
+
+  // Attachment metadata (IMAGE / FILE messages).
+  attachmentUrl      String?
+  attachmentPublicId String?
+  attachmentName     String?
+  attachmentMimeType String?
+  attachmentSize     Int? // bytes
+
+  // Replies: self-relation. If the original is hard-deleted the reply keeps existing.
+  replyToId String?   @db.Uuid
+  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Message[] @relation("MessageReplies")
+
+  editedAt  DateTime?
+  deletedAt DateTime? // Soft delete: content is cleared, row kept for thread integrity.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reactions     MessageReaction[]
+  reads         MessageRead[]
+  notifications Notification[]
+
+  // Primary access pattern: paginate a conversation's messages by time.
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@index([senderId])
+  @@index([replyToId])
+  @@map("messages")
+}
+
+model MessageReaction {
+  id        String  @id @default(uuid()) @db.Uuid
+  messageId String  @db.Uuid
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String  @db.Uuid
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emoji String @db.VarChar(32)
+
+  createdAt DateTime @default(now())
+
+  // A user can add several different emojis, but each emoji only once per message.
+  @@unique([messageId, userId, emoji])
+  @@index([userId])
+  @@map("message_reactions")
+}
+
+// Per-recipient delivery/read receipt for a message.
+model MessageRead {
+  id        String  @id @default(uuid()) @db.Uuid
+  messageId String  @db.Uuid
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String  @db.Uuid
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  deliveredAt DateTime?
+  readAt      DateTime?
+
+  @@unique([messageId, userId])
+  @@index([userId])
+  @@map("message_reads")
+}
+
+model Notification {
+  id     String           @id @default(uuid()) @db.Uuid
+  type   NotificationType
+  userId String           @db.Uuid // recipient
+  user   User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  actorId String? @db.Uuid // who triggered it
+  actor   User?   @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  conversationId String?       @db.Uuid
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  messageId      String?       @db.Uuid
+  message        Message?      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  title String? @db.VarChar(150)
+  body  String? @db.VarChar(500)
+
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+  @@map("notifications")
+}

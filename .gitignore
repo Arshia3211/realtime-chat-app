@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Environment files (commit .env.example only)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Build output
+dist/
+dist-ssr/
+build/
+
+# Server uploads (folder kept via .gitkeep)
+uploads/*
+!uploads/.gitkeep
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Prisma generated client
+server/src/generated/
+
+# Logs
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp

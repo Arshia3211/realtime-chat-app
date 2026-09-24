@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.local
+*.log
+
+# Prisma generated client (regenerate with `npm run prisma:generate`)
+src/generated/
+
+# User uploads (keep the folder itself)
+uploads/*
+!uploads/.gitkeep
