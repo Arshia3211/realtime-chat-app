@@ -10,12 +10,20 @@ const email = z
   .pipe(z.email('Enter a valid email address'));
 
 // bcrypt only uses the first 72 bytes of a password, so longer ones are rejected.
-const password = z
+export const passwordSchema = z
   .string({ error: 'Password is required' })
   .min(8, 'Password must be at least 8 characters')
   .max(72, 'Password must be at most 72 characters')
   .regex(/[A-Za-z]/, 'Password must contain a letter')
   .regex(/\d/, 'Password must contain a number');
+
+export const usernameSchema = z
+  .string({ error: 'Username is required' })
+  .trim()
+  .toLowerCase()
+  .min(3, 'Username must be at least 3 characters')
+  .max(30, 'Username must be at most 30 characters')
+  .regex(/^[a-z0-9_]+$/, 'Username can only contain letters, numbers and underscores');
 
 export const registerSchema = z.object({
   displayName: z
@@ -23,15 +31,9 @@ export const registerSchema = z.object({
     .trim()
     .min(2, 'Display name must be at least 2 characters')
     .max(50, 'Display name must be at most 50 characters'),
-  username: z
-    .string({ error: 'Username is required' })
-    .trim()
-    .toLowerCase()
-    .min(3, 'Username must be at least 3 characters')
-    .max(30, 'Username must be at most 30 characters')
-    .regex(/^[a-z0-9_]+$/, 'Username can only contain letters, numbers and underscores'),
+  username: usernameSchema,
   email,
-  password,
+  password: passwordSchema,
 });
 
 export const loginSchema = z.object({
@@ -49,5 +51,5 @@ export const forgotPasswordSchema = z.object({ email });
 
 export const resetPasswordSchema = z.object({
   token: z.string({ error: 'Reset token is required' }).regex(/^[a-f0-9]{64}$/, 'Invalid reset link'),
-  password,
+  password: passwordSchema,
 });

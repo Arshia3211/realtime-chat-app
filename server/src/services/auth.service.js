@@ -9,7 +9,7 @@ import { getTokenExpiry, signAccessToken, signRefreshToken, verifyRefreshToken }
 import { selfUserSelect } from '../utils/userSelect.js';
 import { sendPasswordResetEmail } from './email.service.js';
 
-const BCRYPT_ROUNDS = 12;
+export const BCRYPT_ROUNDS = 12;
 const RESET_TOKEN_TTL_MINUTES = 30;
 // A just-rotated refresh token is still accepted this long (concurrent tabs).
 const ROTATION_GRACE_MS = 30_000;
@@ -40,7 +40,7 @@ const createSession = async (userId, meta) => {
     },
   });
 
-  return { accessToken: signAccessToken(userId), refreshToken, refreshTokenExpiresAt };
+  return { accessToken: signAccessToken(userId, sessionId), refreshToken, refreshTokenExpiresAt };
 };
 
 const issueAuthResult = async (user, meta) => {
@@ -142,7 +142,7 @@ export const refresh = async (refreshToken) => {
 
   return {
     user,
-    accessToken: signAccessToken(user.id),
+    accessToken: signAccessToken(user.id, session.id),
     refreshToken: newRefreshToken,
     refreshTokenExpiresAt,
   };

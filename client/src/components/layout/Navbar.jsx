@@ -1,6 +1,7 @@
 import { LogOut, MessageCircle } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
+import UserAvatar from '@/components/profile/UserAvatar'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
@@ -50,7 +51,10 @@ export default function Navbar() {
           title={isConnected ? 'Connected' : 'Disconnected'}
           aria-label={isConnected ? 'Connected' : 'Disconnected'}
         />
-        <span className="hidden max-w-40 truncate text-sm md:inline">{user?.displayName}</span>
+        <Link to="/profile" className="flex items-center gap-2 rounded-full" aria-label="Your profile">
+          <UserAvatar user={user} size="sm" />
+          <span className="hidden max-w-40 truncate text-sm md:inline">{user?.displayName}</span>
+        </Link>
         <Button variant="ghost" size="sm" onClick={handleLogout} disabled={isSigningOut}>
           <LogOut aria-hidden="true" />
           <span className="hidden sm:inline">Sign out</span>

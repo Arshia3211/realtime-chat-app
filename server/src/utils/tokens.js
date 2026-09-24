@@ -10,8 +10,9 @@ const assertSecret = (secret, name) => {
 };
 
 // Short-lived token sent in the Authorization header (and Socket.IO handshake).
-export const signAccessToken = (userId) =>
-  jwt.sign({ type: 'access' }, assertSecret(env.jwt.secret, 'JWT_SECRET'), {
+// `sid` identifies the device session, e.g. to keep it when signing out other devices.
+export const signAccessToken = (userId, sessionId) =>
+  jwt.sign({ type: 'access', sid: sessionId }, assertSecret(env.jwt.secret, 'JWT_SECRET'), {
     subject: userId,
     expiresIn: env.jwt.expiresIn,
   });

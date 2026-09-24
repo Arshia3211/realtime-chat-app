@@ -7,6 +7,7 @@ import { env } from './config/env.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import apiRoutes from './routes/index.js';
+import { UPLOADS_DIR, useLocalStorage } from './services/storage.service.js';
 
 const app = express();
 
@@ -29,6 +30,19 @@ app.get('/', (_req, res) => {
     health: '/api/health',
   });
 });
+
+// Development-only local uploads (see services/storage.service.js). The client runs
+// on another origin, so these files must be allowed to load cross-origin.
+if (useLocalStorage) {
+  app.use(
+    '/uploads',
+    (_req, res, next) => {
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+      next();
+    },
+    express.static(UPLOADS_DIR, { index: false, dotfiles: 'deny', maxAge: '7d', immutable: true }),
+  );
+}
 
 app.use('/api', apiLimiter, apiRoutes);
 

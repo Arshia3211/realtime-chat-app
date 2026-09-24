@@ -2,7 +2,7 @@
 
 A full-stack real-time chat application built with React, Express, Socket.IO and PostgreSQL.
 
-> **Status: Phase 3 — authentication complete.** Users can register, sign in/out, stay signed in across reloads and reset their password.
+> **Status: Phase 4 — user profiles complete.** Users can register, sign in/out, reset their password, edit their profile and photo, change their password and find other people.
 > Chat features are **not implemented yet**. See the [roadmap](#roadmap) for progress.
 
 ## Planned features
@@ -120,7 +120,7 @@ On Windows PowerShell use `Copy-Item` instead of `cp`.
 | `DATABASE_URL` | PostgreSQL connection string |
 | `JWT_SECRET` / `JWT_EXPIRES_IN` | Access-token secret and lifetime |
 | `JWT_REFRESH_SECRET` / `JWT_REFRESH_EXPIRES_IN` | Refresh-token secret and lifetime |
-| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Cloudinary credentials |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Cloudinary credentials. Optional in development: when empty, uploaded images are saved to `server/uploads` and served from `/uploads`. Required in production. |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` | Outgoing email. Optional in development: when empty, emails go to a free [Ethereal](https://ethereal.email) test inbox and the server prints a preview link (plus the reset link itself). Required in production. |
 
 `CLIENT_URL`, `DATABASE_URL`, `JWT_SECRET` and `JWT_REFRESH_SECRET` are required in production. In development the server starts without them and prints a warning.
@@ -168,6 +168,21 @@ Never commit `.env` files. Only the `.env.example` files are tracked.
 | POST | `/api/auth/forgot-password` | — | Email a reset link |
 | POST | `/api/auth/reset-password` | — | Set a new password with a reset token |
 
+## Users
+
+All `/api/users` endpoints require `Authorization: Bearer <token>`.
+
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| GET | `/api/users/search?q=&limit=` | Find people by username or display name (excludes yourself) |
+| GET | `/api/users/:userId` | Public profile (no email) |
+| PATCH | `/api/users/me` | Update `displayName`, `username` and/or `bio` |
+| PATCH | `/api/users/me/password` | Change password. Keeps this device signed in and signs out all others |
+| PUT | `/api/users/me/avatar` | Upload a profile photo (`multipart/form-data`, field `file`, max 5 MB) |
+| DELETE | `/api/users/me/avatar` | Remove the profile photo |
+
+Uploaded images are checked by their actual file contents (JPEG, PNG, WebP or GIF), not the file name or the type the browser reports.
+
 ## Development commands
 
 Run the frontend and backend in two terminals:
@@ -203,7 +218,7 @@ Health check: `GET http://localhost:5000/api/health` returns `200` with `"databa
 - [x] **Phase 1**: Project setup
 - [x] **Phase 2**: Database + Prisma
 - [x] **Phase 3**: Authentication
-- [ ] Phase 4: User profiles
+- [x] **Phase 4**: User profiles
 - [ ] Phase 5: Conversations
 - [ ] Phase 6: Messages
 - [ ] Phase 7: Socket.IO real-time messaging
