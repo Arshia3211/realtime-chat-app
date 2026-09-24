@@ -4,7 +4,13 @@ import { env } from './env.js';
 
 // Single shared Prisma Client instance for the whole process.
 // The generated client lives in src/generated/prisma (run `npm run prisma:generate`).
-const adapter = new PrismaPg({ connectionString: env.databaseUrl });
+const adapter = new PrismaPg(
+  { connectionString: env.databaseUrl },
+  {
+    // A hosted database may drop idle connections; the pool replaces them, so just log it.
+    onPoolError: (error) => console.warn(`[db] idle connection error: ${error.message}`),
+  },
+);
 
 export const prisma = new PrismaClient({
   adapter,

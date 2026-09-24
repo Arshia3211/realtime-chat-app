@@ -1,13 +1,13 @@
 import { io } from 'socket.io-client'
 import { config } from '@/lib/config'
+import { useAuthStore } from '@/stores/authStore'
 
-// One Socket.IO connection per app session. Created after login and torn
+// One Socket.IO connection per signed-in session. Created after login and torn
 // down on logout; components use it through hooks/useSocket.js.
 let socket = null
 
-export const connectSocket = (accessToken) => {
+export const connectSocket = () => {
   if (socket) {
-    socket.auth = { token: accessToken }
     if (!socket.connected) socket.connect()
     return socket
   }
@@ -15,7 +15,9 @@ export const connectSocket = (accessToken) => {
   socket = io(config.socketUrl, {
     autoConnect: false,
     withCredentials: true,
-    auth: { token: accessToken }, // verified server-side in Phase 7
+    // Evaluated on every (re)connect, so a refreshed access token is picked up
+    // without tearing the socket down. Verified server-side in Phase 7.
+    auth: (cb) => cb({ token: useAuthStore.getState().accessToken }),
   })
   socket.connect()
   return socket

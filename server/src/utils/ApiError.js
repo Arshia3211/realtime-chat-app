@@ -12,19 +12,19 @@ export class ApiError extends Error {
     return new ApiError(400, message, details);
   }
 
-  static unauthorized(message = 'Unauthorized') {
-    return new ApiError(401, message);
+  static unauthorized(message = 'Unauthorized', details) {
+    return new ApiError(401, message, details);
   }
 
-  static forbidden(message = 'Forbidden') {
-    return new ApiError(403, message);
+  static forbidden(message = 'Forbidden', details) {
+    return new ApiError(403, message, details);
   }
 
-  static notFound(message = 'Not found') {
-    return new ApiError(404, message);
+  static notFound(message = 'Not found', details) {
+    return new ApiError(404, message, details);
   }
 
-  static conflict(message = 'Conflict') {
-    return new ApiError(409, message);
+  static conflict(message = 'Conflict', details) {
+    return new ApiError(409, message, details);
   }
 }

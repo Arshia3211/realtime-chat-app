@@ -13,9 +13,17 @@ export const apiLimiter = rateLimit({
   limit: 300,
 });
 
-// Stricter limit for login/register/password-reset (applied in Phase 3).
+// Login/register/reset: only failed attempts count, to slow down password guessing.
 export const authLimiter = rateLimit({
   ...baseOptions,
   windowMs: 15 * 60 * 1000,
   limit: 20,
+  skipSuccessfulRequests: true,
+});
+
+// Forgot-password always succeeds (no account enumeration), so every request counts.
+export const passwordResetLimiter = rateLimit({
+  ...baseOptions,
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
 });

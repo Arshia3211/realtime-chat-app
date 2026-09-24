@@ -7,15 +7,14 @@ import { useSocketStore } from '@/stores/socketStore'
 // Opens the socket while the user is authenticated and mirrors its
 // connection status into socketStore. Mount once, in ProtectedLayout.
 export function useSocketConnection() {
-  const accessToken = useAuthStore((state) => state.accessToken)
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const setConnected = useSocketStore((state) => state.setConnected)
   const setConnectionError = useSocketStore((state) => state.setConnectionError)
 
   useEffect(() => {
-    if (!isAuthenticated || !accessToken) return undefined
+    if (!isAuthenticated) return undefined
 
-    const socket = connectSocket(accessToken)
+    const socket = connectSocket()
     socket.on(SOCKET_EVENTS.CONNECT, () => setConnected(true))
     socket.on(SOCKET_EVENTS.DISCONNECT, () => setConnected(false))
     socket.on(SOCKET_EVENTS.CONNECT_ERROR, (error) => setConnectionError(error.message))
@@ -24,7 +23,7 @@ export function useSocketConnection() {
       disconnectSocket()
       setConnected(false)
     }
-  }, [isAuthenticated, accessToken, setConnected, setConnectionError])
+  }, [isAuthenticated, setConnected, setConnectionError])
 }
 
 // Subscribes to a socket event for the lifetime of the component.

@@ -2,7 +2,7 @@
 
 A full-stack real-time chat application built with React, Express, Socket.IO and PostgreSQL.
 
-> **Status: Phase 2 — database ready.** The architecture, tooling and PostgreSQL schema (migrated) are in place.
+> **Status: Phase 3 — authentication complete.** Users can register, sign in/out, stay signed in across reloads and reset their password.
 > Chat features are **not implemented yet**. See the [roadmap](#roadmap) for progress.
 
 ## Planned features
@@ -86,7 +86,7 @@ realtime-chat-app/
 - npm
 - PostgreSQL 14+ (local install, Docker, or a hosted provider such as Neon or Supabase)
 - A Cloudinary account (needed from Phase 11)
-- SMTP credentials (needed for password reset in Phase 3), e.g. Mailtrap for development
+- SMTP credentials for production email (optional in development, see below)
 
 ## Setup
 
@@ -121,7 +121,7 @@ On Windows PowerShell use `Copy-Item` instead of `cp`.
 | `JWT_SECRET` / `JWT_EXPIRES_IN` | Access-token secret and lifetime |
 | `JWT_REFRESH_SECRET` / `JWT_REFRESH_EXPIRES_IN` | Refresh-token secret and lifetime |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Cloudinary credentials |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` | Outgoing email |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` | Outgoing email. Optional in development: when empty, emails go to a free [Ethereal](https://ethereal.email) test inbox and the server prints a preview link (plus the reset link itself). Required in production. |
 
 `CLIENT_URL`, `DATABASE_URL`, `JWT_SECRET` and `JWT_REFRESH_SECRET` are required in production. In development the server starts without them and prints a warning.
 
@@ -148,6 +148,25 @@ Never commit `.env` files. Only the `.env.example` files are tracked.
    npm run prisma:migrate -- --name init
    ```
 5. Optionally inspect the data with `npm run prisma:studio`.
+
+## Authentication
+
+- **Access token**: short-lived JWT (15 min), kept in memory on the client and sent as `Authorization: Bearer <token>`.
+- **Refresh token**: long-lived JWT (7 days) in an `httpOnly` cookie scoped to `/api/auth`. It is never readable from JavaScript.
+- **Sessions**: each sign-in creates a row in `sessions` storing only a SHA-256 hash of the refresh token. The token is rotated on every refresh. Replaying an old token revokes that session (theft detection), with a 30-second grace window for tabs refreshing at the same moment.
+- **Passwords**: bcrypt (12 rounds). Login responds identically for unknown users and wrong passwords.
+- **Password reset**: single-use token, valid for 30 minutes and stored hashed. A successful reset signs out every device. The forgot-password response never reveals whether an account exists.
+- **Rate limits**: failed login/register/reset attempts are limited to 20 per 15 minutes, and forgot-password requests to 5 per 15 minutes.
+
+| Method | Endpoint | Auth | Description |
+| ------ | -------- | ---- | ----------- |
+| POST | `/api/auth/register` | — | Create an account and sign in |
+| POST | `/api/auth/login` | — | Sign in with email or username |
+| POST | `/api/auth/refresh` | cookie | New access token and rotated refresh cookie |
+| POST | `/api/auth/logout` | cookie | Revoke this device's session |
+| GET | `/api/auth/me` | Bearer | Current user |
+| POST | `/api/auth/forgot-password` | — | Email a reset link |
+| POST | `/api/auth/reset-password` | — | Set a new password with a reset token |
 
 ## Development commands
 
@@ -183,7 +202,7 @@ Health check: `GET http://localhost:5000/api/health` returns `200` with `"databa
 
 - [x] **Phase 1**: Project setup
 - [x] **Phase 2**: Database + Prisma
-- [ ] Phase 3: Authentication
+- [x] **Phase 3**: Authentication
 - [ ] Phase 4: User profiles
 - [ ] Phase 5: Conversations
 - [ ] Phase 6: Messages

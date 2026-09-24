@@ -30,6 +30,15 @@ const shutdown = (signal) => {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
+// Log the cause of unexpected failures before exiting (nodemon/PM2 restart the process).
+process.on('unhandledRejection', (reason) => {
+  console.error('[server] unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('[server] uncaught exception:', error);
+  process.exit(1);
+});
+
 start().catch((error) => {
   console.error(error);
   process.exit(1);

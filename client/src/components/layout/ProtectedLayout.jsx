@@ -1,10 +1,11 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useSocketConnection } from '@/hooks/useSocket'
 import { useAuthStore } from '@/stores/authStore'
+import FullPageLoader from './FullPageLoader'
 import Navbar from './Navbar'
 
-// Wraps every authenticated page: redirects guests to /login,
-// renders the navbar and owns the Socket.IO connection lifecycle.
+// Wraps every authenticated page: redirects guests to /login (remembering where
+// they were going), renders the navbar and owns the Socket.IO connection.
 export default function ProtectedLayout() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const isCheckingAuth = useAuthStore((state) => state.isCheckingAuth)
@@ -12,9 +13,7 @@ export default function ProtectedLayout() {
 
   useSocketConnection()
 
-  if (isCheckingAuth) {
-    return <div className="grid h-dvh place-items-center text-sm text-muted-foreground">Loading…</div>
-  }
+  if (isCheckingAuth) return <FullPageLoader />
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />
