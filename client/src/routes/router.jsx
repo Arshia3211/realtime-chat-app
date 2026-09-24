@@ -24,8 +24,8 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedLayout />,
     children: [
-      { path: '/chat', element: <Chat /> },
-      { path: '/chat/:conversationId', element: <Chat /> },
+      // One route for both, so opening a conversation doesn't remount the sidebar.
+      { path: '/chat/:conversationId?', element: <Chat /> },
       { path: '/profile', element: <Profile /> },
       { path: '/settings', element: <Settings /> },
     ],

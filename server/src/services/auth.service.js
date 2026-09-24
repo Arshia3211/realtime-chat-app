@@ -78,14 +78,14 @@ export const register = async ({ displayName, username, email, password }, meta)
 
 export const login = async ({ identifier, password }, meta) => {
   const where = identifier.includes('@') ? { email: identifier } : { username: identifier };
-  const user = await prisma.user.findUnique({ where, select: { id: true, passwordHash: true } });
+  const user = await prisma.user.findUnique({ where, select: { ...selfUserSelect, passwordHash: true } });
 
   const passwordMatches = await bcrypt.compare(password, user?.passwordHash ?? (await dummyPasswordHash));
   if (!user || !passwordMatches) {
     throw ApiError.unauthorized('Invalid email/username or password');
   }
 
-  const profile = await prisma.user.findUnique({ where: { id: user.id }, select: selfUserSelect });
+  const { passwordHash: _passwordHash, ...profile } = user;
   return issueAuthResult(profile, meta);
 };
 
@@ -125,20 +125,21 @@ export const refresh = async (refreshToken) => {
   const refreshTokenExpiresAt = getTokenExpiry(newRefreshToken);
 
   // Conditional update: if another request rotated this session meanwhile, count is 0.
-  const { count } = await prisma.session.updateMany({
-    where: { id: session.id, refreshTokenHash: session.refreshTokenHash },
-    data: {
-      refreshTokenHash: hashToken(newRefreshToken),
-      previousTokenHash: session.refreshTokenHash,
-      rotatedAt: new Date(),
-      expiresAt: refreshTokenExpiresAt,
-      lastUsedAt: new Date(),
-    },
-  });
-  if (count === 0) throw invalidSession();
-
-  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: selfUserSelect });
-  if (!user) throw invalidSession();
+  // Rotation and profile lookup are independent, so they run in parallel.
+  const [{ count }, user] = await Promise.all([
+    prisma.session.updateMany({
+      where: { id: session.id, refreshTokenHash: session.refreshTokenHash },
+      data: {
+        refreshTokenHash: hashToken(newRefreshToken),
+        previousTokenHash: session.refreshTokenHash,
+        rotatedAt: new Date(),
+        expiresAt: refreshTokenExpiresAt,
+        lastUsedAt: new Date(),
+      },
+    }),
+    prisma.user.findUnique({ where: { id: session.userId }, select: selfUserSelect }),
+  ]);
+  if (count === 0 || !user) throw invalidSession();
 
   return {
     user,

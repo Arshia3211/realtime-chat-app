@@ -3,9 +3,11 @@
 // Review before running `npm run prisma:migrate`.
 
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "esm"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  moduleFormat    = "esm"
+  // Load relations with SQL joins (one round trip) via `relationLoadStrategy: 'join'`.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {

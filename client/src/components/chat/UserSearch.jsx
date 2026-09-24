@@ -1,21 +1,45 @@
-import { LoaderCircle, Search, X } from 'lucide-react'
+import { LoaderCircle, MessageCircle, Search, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import ProfileDialog from '@/components/profile/ProfileDialog'
 import UserAvatar from '@/components/profile/UserAvatar'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useDebounce } from '@/hooks/useDebounce'
 import { getErrorMessage } from '@/services/api'
+import { chatService } from '@/services/chatService'
 import { userService } from '@/services/userService'
+import { useChatStore } from '@/stores/chatStore'
 import { useUserStore } from '@/stores/userStore'
 
-// Find people by name or username and open their profile.
-// Phase 5 adds "start a conversation" from the profile dialog.
+// Find people by name or username, view their profile and start a conversation.
 export default function UserSearch() {
   const [query, setQuery] = useState('')
   // Latest completed search; loading state is derived by comparing queries.
   const [response, setResponse] = useState({ query: '', users: [], error: null })
   const [selectedUserId, setSelectedUserId] = useState(null)
   const cacheUsers = useUserStore((state) => state.cacheUsers)
+
+  const [isStarting, setIsStarting] = useState(false)
+  const [startError, setStartError] = useState(null)
+  const navigate = useNavigate()
+
+  // Opens the existing one-to-one chat with this person, or creates it.
+  const startConversation = async (userId) => {
+    setIsStarting(true)
+    setStartError(null)
+    try {
+      const { data } = await chatService.openDirect(userId)
+      useChatStore.getState().upsertConversation(data.conversation)
+      setSelectedUserId(null)
+      setQuery('')
+      navigate(`/chat/${data.conversation.id}`)
+    } catch (err) {
+      setStartError(getErrorMessage(err, 'Could not start the conversation'))
+    } finally {
+      setIsStarting(false)
+    }
+  }
 
   const trimmedQuery = query.trim()
   const debouncedQuery = useDebounce(trimmedQuery, 300)
@@ -81,7 +105,7 @@ export default function UserSearch() {
             <p className="px-4 py-2 text-sm text-muted-foreground">No people found for “{response.query}”.</p>
           )}
           {response.users.length > 0 && (
-            <ul>
+            <ul aria-label="People">
               {response.users.map((user) => (
                 <li key={user.id}>
                   <button
@@ -105,8 +129,21 @@ export default function UserSearch() {
       <ProfileDialog
         userId={selectedUserId}
         open={selectedUserId !== null}
-        onOpenChange={(open) => !open && setSelectedUserId(null)}
-      />
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedUserId(null)
+            setStartError(null)
+          }
+        }}
+      >
+        <div className="grid w-full gap-2 pt-2">
+          <Button onClick={() => startConversation(selectedUserId)} disabled={isStarting}>
+            <MessageCircle aria-hidden="true" />
+            {isStarting ? 'Opening…' : 'Message'}
+          </Button>
+          {startError && <p className="text-sm text-destructive">{startError}</p>}
+        </div>
+      </ProfileDialog>
     </div>
   )
 }

@@ -5,7 +5,13 @@ import { env } from './env.js';
 // Single shared Prisma Client instance for the whole process.
 // The generated client lives in src/generated/prisma (run `npm run prisma:generate`).
 const adapter = new PrismaPg(
-  { connectionString: env.databaseUrl },
+  {
+    connectionString: env.databaseUrl,
+    // Opening a connection to a remote database is slow (TLS + auth). Keep idle
+    // connections for 5 minutes instead of pg's default 10 seconds.
+    idleTimeoutMillis: 5 * 60_000,
+    keepAlive: true,
+  },
   {
     // A hosted database may drop idle connections; the pool replaces them, so just log it.
     onPoolError: (error) => console.warn(`[db] idle connection error: ${error.message}`),
@@ -16,6 +22,8 @@ export const prisma = new PrismaClient({
   adapter,
   log: env.isProduction ? ['error'] : ['warn', 'error'],
 });
+
+const WARM_CONNECTIONS = 3;
 
 // Lightweight round-trip used by startup and the health check.
 export const checkDatabaseConnection = async () => {
@@ -35,7 +43,10 @@ export const connectDatabase = async () => {
     return false;
   }
 
-  const { ok, error } = await checkDatabaseConnection();
+  // Several checks at once also opens (warms) that many pooled connections, so the
+  // first requests don't pay the connection setup cost.
+  const checks = await Promise.all(Array.from({ length: WARM_CONNECTIONS }, checkDatabaseConnection));
+  const { ok, error } = checks.find((check) => !check.ok) ?? checks[0];
   if (ok) {
     console.log('[db] connected to PostgreSQL');
     return true;

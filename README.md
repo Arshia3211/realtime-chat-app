@@ -2,8 +2,7 @@
 
 A full-stack real-time chat application built with React, Express, Socket.IO and PostgreSQL.
 
-> **Status: Phase 4 — user profiles complete.** Users can register, sign in/out, reset their password, edit their profile and photo, change their password and find other people.
-> Chat features are **not implemented yet**. See the [roadmap](#roadmap) for progress.
+> **Status: Phase 5 — conversations complete.** Users can register, sign in, manage their profile, find people and start one-to-one conversations. Sending messages arrives in Phase 6.
 
 ## Planned features
 
@@ -183,6 +182,23 @@ All `/api/users` endpoints require `Authorization: Bearer <token>`.
 
 Uploaded images are checked by their actual file contents (JPEG, PNG, WebP or GIF), not the file name or the type the browser reports.
 
+## Conversations
+
+All `/api/conversations` endpoints require `Authorization: Bearer <token>`. Non-members get `404` for a conversation, the same as for one that doesn't exist.
+
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| GET | `/api/conversations` | Your conversations, most recent activity first, each with its members, last message and unread count |
+| POST | `/api/conversations/direct` | Open the one-to-one conversation with `{ userId }`, creating it if needed (`201` when created, `200` when it already existed) |
+| GET | `/api/conversations/:conversationId` | One conversation |
+| POST | `/api/conversations/:conversationId/read` | Mark the conversation as read (clears the unread count) |
+
+A one-to-one conversation is unique per pair of users (enforced by a database constraint), even if both people start it at the same moment.
+
+### Database latency
+
+Each query is a network round trip to PostgreSQL, so the conversation service keeps round trips low: relations are loaded with SQL joins (`relationJoins`), independent queries run in parallel, and idle connections are kept for 5 minutes and pre-opened at startup. With a distant hosted database, choose a region close to where the server runs.
+
 ## Development commands
 
 Run the frontend and backend in two terminals:
@@ -219,7 +235,7 @@ Health check: `GET http://localhost:5000/api/health` returns `200` with `"databa
 - [x] **Phase 2**: Database + Prisma
 - [x] **Phase 3**: Authentication
 - [x] **Phase 4**: User profiles
-- [ ] Phase 5: Conversations
+- [x] **Phase 5**: Conversations (one-to-one; groups in Phase 12)
 - [ ] Phase 6: Messages
 - [ ] Phase 7: Socket.IO real-time messaging
 - [ ] Phase 8: Presence + typing indicators
