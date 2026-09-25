@@ -2,12 +2,14 @@ import { LoaderCircle, MessageCircleOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import UserAvatar from '@/components/profile/UserAvatar'
+import { useMessages } from '@/hooks/useMessages'
 import { getErrorMessage } from '@/services/api'
 import { chatService } from '@/services/chatService'
 import { useAuthStore } from '@/stores/authStore'
 import { useChatStore } from '@/stores/chatStore'
 import { getConversationAvatar, getConversationTitle } from '@/utils/conversation'
 import ChatHeader from './ChatHeader'
+import MessageInput from './MessageInput'
 import MessageList from './MessageList'
 
 // The open conversation. Uses the copy already in the list when possible and
@@ -16,6 +18,7 @@ export default function ConversationView({ conversationId }) {
   const currentUserId = useAuthStore((state) => state.user?.id)
   const conversation = useChatStore((state) => state.conversations.find((c) => c.id === conversationId))
   const [loadError, setLoadError] = useState({ conversationId: null, message: null })
+  const messages = useMessages(conversationId)
 
   useEffect(() => {
     useChatStore.getState().setActiveConversation(conversationId)
@@ -81,14 +84,25 @@ export default function ConversationView({ conversationId }) {
   return (
     <>
       <ChatHeader conversation={conversation} currentUserId={currentUserId} />
-      <MessageList>
-        {/* Message history and the composer arrive in Phase 6. */}
-        <div className="m-auto flex max-w-sm flex-col items-center gap-3 text-center">
-          <UserAvatar user={getConversationAvatar(conversation, currentUserId)} size="lg" />
-          <p className="font-medium">{title}</p>
-          <p className="text-sm text-muted-foreground">This is the beginning of your conversation.</p>
-        </div>
-      </MessageList>
+      <MessageList
+        messages={messages.items}
+        currentUserId={currentUserId}
+        status={messages.status}
+        error={messages.error}
+        hasMore={messages.hasMore}
+        isLoadingOlder={messages.isLoadingOlder}
+        onLoadOlder={messages.loadOlder}
+        onRetry={messages.retryMessage}
+        onDiscard={messages.discardMessage}
+        emptyState={
+          <div className="mx-auto flex max-w-sm flex-col items-center gap-3 py-8 text-center">
+            <UserAvatar user={getConversationAvatar(conversation, currentUserId)} size="lg" />
+            <p className="font-medium">{title}</p>
+            <p className="text-sm text-muted-foreground">This is the beginning of your conversation.</p>
+          </div>
+        }
+      />
+      <MessageInput onSend={messages.sendMessage} placeholder={`Message ${title}`} />
     </>
   )
 }

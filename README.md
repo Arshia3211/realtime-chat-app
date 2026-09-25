@@ -2,7 +2,7 @@
 
 A full-stack real-time chat application built with React, Express, Socket.IO and PostgreSQL.
 
-> **Status: Phase 5 — conversations complete.** Users can register, sign in, manage their profile, find people and start one-to-one conversations. Sending messages arrives in Phase 6.
+> **Status: Phase 6 — messages complete.** Users can sign in, manage their profile, find people, start one-to-one conversations and send and read text messages. Live (real-time) delivery arrives in Phase 7.
 
 ## Planned features
 
@@ -195,6 +195,19 @@ All `/api/conversations` endpoints require `Authorization: Bearer <token>`. Non-
 
 A one-to-one conversation is unique per pair of users (enforced by a database constraint), even if both people start it at the same moment.
 
+## Messages
+
+All `/api/messages` endpoints require `Authorization: Bearer <token>` and conversation membership.
+
+| Method | Endpoint | Description |
+| ------ | -------- | ----------- |
+| GET | `/api/messages/conversation/:conversationId?before=&limit=` | History, newest page first (`limit` default 30, max 100). Pass `before` = `nextCursor` from the previous page to load older messages. Returns `{ messages, hasMore, nextCursor }`, with messages oldest → newest |
+| POST | `/api/messages/conversation/:conversationId` | Send `{ content, replyToId? }` (1–4000 characters). Limited to 120 messages per minute per user |
+
+- Sending is one atomic SQL statement. It checks membership and the reply target, inserts the message, updates the conversation's activity time and marks it read for the sender.
+- The content of deleted messages is never returned, including inside reply quotes.
+- The client shows sent messages immediately (optimistic UI), then marks them as sent or failed, with Retry and Delete.
+
 ### Database latency
 
 Each query is a network round trip to PostgreSQL, so the conversation service keeps round trips low: relations are loaded with SQL joins (`relationJoins`), independent queries run in parallel, and idle connections are kept for 5 minutes and pre-opened at startup. With a distant hosted database, choose a region close to where the server runs.
@@ -236,7 +249,7 @@ Health check: `GET http://localhost:5000/api/health` returns `200` with `"databa
 - [x] **Phase 3**: Authentication
 - [x] **Phase 4**: User profiles
 - [x] **Phase 5**: Conversations (one-to-one; groups in Phase 12)
-- [ ] Phase 6: Messages
+- [x] **Phase 6**: Messages
 - [ ] Phase 7: Socket.IO real-time messaging
 - [ ] Phase 8: Presence + typing indicators
 - [ ] Phase 9: Read/delivery status
